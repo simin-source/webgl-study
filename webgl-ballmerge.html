@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小球融合</title>
+    <script src="./js/initShader.js"></script>
+    <script src="./js/matrix.js"></script>
+    <style>
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="draw1" width="400" height="400" style="background: skyblue;">浏览器不支持canvas</canvas>
+</body>
+
+</html>
+<script type="module">
+    const draw1 = document.getElementById('draw1');
+    const gl = draw1.getContext('webgl');
+    //attribute只传递顶点数量
+    const VERTEX_SHADER_SOURCE = `
+            attribute vec4 aPosition;
+            attribute vec4 aTex;
+            varying vec2 vTex;
+            void main(){
+                vTex=vec2(aTex.x,aTex.y);//opengl强类型语言,左右两边类型一致
+                gl_Position=aPosition;
+                gl_PointSize=10.0;
+            }
+        `; //顶点 
+    const FRAGMENT_SHADER_SOURCE = `
+            precision lowp float;
+            uniform sampler2D uSampler;//取样器
+            varying vec2 vTex;
+            uniform vec3 metaBalls[2];
+            void main(){
+                float x=gl_FragCoord.x;
+                float y=gl_FragCoord.y;
+                float v=0.0;
+
+                for(int i=0;i<2;i++){
+                    vec3 m =metaBalls[i];
+                    float dx=m.x-x;
+                    float dy=m.y-y;
+                    float r=m.z;
+
+                    v+=r*r/(dx*dx+dy*dy);
+                }
+                vec4 color;
+                if(v>1.0){
+                    color=vec4(0.0,1.0,0.0,1.0);
+                }else{
+                    discard;
+                }
+                // vec4 color=texture2D(uSampler,vTex);
+                gl_FragColor=color;
+            }
+        `;//片元
+    const program = initShader(gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
+    const aPosition = gl.getAttribLocation(program, 'aPosition');//第二个参数是源码里attribute声明的变量名
+    // const aTex = gl.getAttribLocation(program, 'aTex');
+    // const uSampler = gl.getUniformLocation(program, 'uSampler');
+    const metaBalls = gl.getUniformLocation(program, 'metaBalls');
+
+    const points = new Float32Array([
+        -0.9, 0.9, 0.0, 1.0, 0.0, 1.0,
+        -0.9, -0.9, 0.0, 1.0, 0.0, 0.0,
+        0.9, 0.9, 0.0, 1.0, 1.0, 1.0,
+        0.9, -0.9, 0.0, 1.0, 1.0, 0.0,
+    ]);
+    // let data=[
+    //     250,180,30,
+    //     250,300,30,
+    // ];
+    let balls = [
+        {
+            y: 180,
+            speed: 0.5,
+        }, {
+            y: 300,
+            speed: -0.5,
+        }
+    ];
+
+    // gl.uniform3fv(metaBalls,new Float32Array(data));
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, points, gl.STATIC_DRAW);
+    const BYTES = points.BYTES_PER_ELEMENT;
+    gl.vertexAttribPointer(aPosition, 4, gl.FLOAT, false, BYTES * 6, 0);
+    // gl.vertexAttribPointer(aTex, 2, gl.FLOAT, false, BYTES * 6, BYTES * 4);
+    void gl.enableVertexAttribArray(aPosition);
+
+
+    // const img = new Image();
+    // img.onload = function () {
+    //     //创建纹理对象
+    //     const texture = gl.createTexture();
+    //     //翻转图片Y轴
+    //     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+    //     //开启一个纹理单元
+    //     gl.activeTexture(gl.TEXTURE0);//纹理编号
+    //     //绑定纹理对象
+    //     gl.bindTexture(gl.TEXTURE_2D, texture);//（type,texture），type有两种gl.TEXTURE_2D,gl.TEXTURE_CUBE_MAP,texture纹理对象    
+    //     //处理放大缩小逻辑
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);//(type,pname,param)type同上，pname四种，param两种
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);//gl.TEXTURE_MIN_FILTER缩小
+    //     //横向，纵向，平铺
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);//gl.TEXTURE_WRAP_S横向
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);//gl.TEXTURE_WRAP_T纵向
+    //     //配置纹理图像
+    //     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);//(type,level,internalformat,format,dataType,image),internalformat和format值一致
+
+    //     gl.uniform1i(uSampler, 0);//0为纹理编号
+    // }
+    // img.src = './img/sky.jpg';//1200*675
+
+    let time = 0;
+    function draw() {
+        let data = [];
+        time += 1;
+        for (const i in balls) {
+            balls[i].y += balls[i].speed;
+
+            if (time % 100 === 0) {
+                balls[i].speed = -balls[i].speed;
+            }
+            data.push(
+                250,
+                balls[i].y,
+                30,
+            );
+        };
+        gl.uniform3fv(metaBalls, new Float32Array(data));
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(draw);
+    }
+    draw();
+</script>

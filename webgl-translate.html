@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图形平移，缩放，旋转</title>
+    <script src="./js/initShader.js"></script>
+    <style>
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        body::after {
+            content: '';
+            display: block;
+            width: 1px;
+            height: 500px;
+            background-color: aqua;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        body::before {
+            content: '';
+            display: block;
+            width: 500px;
+            height: 1px;
+            background-color: darkviolet;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="draw1" width="400" height="400" style="background: pink;">浏览器不支持canvas</canvas>
+</body>
+
+</html>
+<script type="module">
+    const draw1 = document.getElementById('draw1');
+    const gl = draw1.getContext('webgl');
+    //attribute只传递顶点数量
+    // const VERTEX_SHADER_SOURCE = `
+    //         attribute vec4 aPosition;
+    //         attribute float aPointSize;
+    //         attribute float aX;
+    //         void main(){
+    //             gl_Position=vec4(aPosition.x+aX,aPosition.y,aPosition.z,1.0);
+    //             gl_PointSize=aPointSize;
+    //         }
+    //     `; //顶点-平移
+    // const VERTEX_SHADER_SOURCE = `
+    //         attribute vec4 aPosition;
+    //         attribute float aPointSize;
+    //         attribute float aX;
+    //         void main(){
+    //             gl_Position=vec4(aPosition.x*aX,aPosition.y,aPosition.z,1.0);
+    //             gl_PointSize=aPointSize;
+    //         }
+    //     `; //顶点-缩放
+    const VERTEX_SHADER_SOURCE = `
+            attribute vec4 aPosition;
+            attribute float aPointSize;
+            attribute float deg;
+            void main(){
+                gl_Position.x=aPosition.x*cos(deg)-aPosition.y*sin(deg);
+                gl_Position.y=aPosition.x*sin(deg)+aPosition.y*cos(deg);
+                gl_Position.z=aPosition.z;
+                gl_Position.w=aPosition.w;
+                gl_PointSize=aPointSize;
+            }
+        `; //顶点-旋转
+    const FRAGMENT_SHADER_SOURCE2 = `
+            precision mediump float;
+            uniform vec2 uColor;
+            void main(){
+                gl_FragColor=vec4(uColor.r,uColor.g,0.0,1.0);
+            }
+        `;//片元，uniform统一声明，所有点颜色一样
+    const program = initShader(gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE2);
+    const aPosition = gl.getAttribLocation(program, 'aPosition');//第二个参数是源码里attribute声明的变量名
+    const aPointSize = gl.getAttribLocation(program, 'aPointSize');
+    const deg = gl.getAttribLocation(program, 'deg');
+    const uColor = gl.getUniformLocation(program, 'uColor');
+    gl.uniform2f(uColor, 1.0, 1.0);
+
+    //用类型化数组创建顶点数据，合并顶点location和size
+    const points = new Float32Array([
+        -0.5, -0.5, 0.0, 1.0, 10.0,
+        0.5, -0.5, 0.0, 1.0, 20.0,
+        // 0.0, 0.5, 30.0,
+        -0.5, 0.5, 0.0, 1.0, 30.0,
+        0.5, 0.5, 0.0, 1.0, 20.0,
+        // 0.5, 0.8, 10.0,
+        // 0.8, 0.5, 10.0
+    ]);
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, points, gl.STATIC_DRAW);
+    const BYTES = points.BYTES_PER_ELEMENT//获取属性字节数
+    gl.vertexAttribPointer(aPosition, 4, gl.FLOAT, false, BYTES * 5, 0);
+    void gl.enableVertexAttribArray(aPosition);
+    gl.vertexAttribPointer(aPointSize, 1, gl.FLOAT, false, BYTES * 5, BYTES * 4);
+    void gl.enableVertexAttribArray(aPointSize);
+    // gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // 循环图形移动
+    // let x = -1;
+    // setInterval(() => {
+    //     x += 0.1;
+    //     if (x > 1.0) {
+    //         x = -1;
+    //     }
+    //     gl.vertexAttrib1f(aX, x);
+    //     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // }, 200);
+    // 循环图形放大
+    // let x = 1;
+    // setInterval(() => {
+    //     x += 0.1;
+    //     if (x > 2.0) {
+    //         x = 1;
+    //     }
+    //     gl.vertexAttrib1f(aX, x);
+    //     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // }, 200);
+    // 循环图形旋转
+    let x = 1;
+    // setInterval(() => {
+    //     x += 0.1;
+    //     gl.vertexAttrib1f(deg, x);
+    //     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // }, 200);
+    //计时器处理图形动画不友好
+    function animation() {
+        x += 0.1;
+        // x += -0.1;
+        gl.vertexAttrib1f(deg, x);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(animation);
+    }
+    animation();
+</script>

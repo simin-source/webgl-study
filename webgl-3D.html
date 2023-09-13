@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D</title>
+    <script src="./js/initShader.js"></script>
+    <script src="./js/matrix.js"></script>
+    <script src="./js/mathUtils.js"></script>
+    <style>
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="draw1" width="400" height="400" style="background: skyblue;">浏览器不支持canvas</canvas>
+</body>
+
+</html>
+<script type="module">
+    const draw1 = document.getElementById('draw1');
+    const gl = draw1.getContext('webgl');
+    //attribute只传递顶点数量
+    const VERTEX_SHADER_SOURCE = `
+            attribute vec4 aPosition;
+            uniform mat4 mat;
+            void main(){
+                gl_Position=mat*aPosition;
+                gl_PointSize=10.0;
+            }
+        `; //顶点 
+    const FRAGMENT_SHADER_SOURCE = `
+            void main(){
+                gl_FragColor=vec4(0.0,1.0,0.0,1.0);
+            }
+        `;//片元
+    const program = initShader(gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
+    const aPosition = gl.getAttribLocation(program, 'aPosition');//第二个参数是源码里attribute声明的变量名
+    const mat = gl.getUniformLocation(program, 'mat');
+
+    const points = new Float32Array([
+        -0.9, 0.9, 0.0, 1.0, 0.0, 1.0,
+        -0.9, -0.9, 0.0, 1.0, 0.0, 0.0,
+        0.9, 0.9, 0.0, 1.0, 1.0, 1.0,
+        0.9, -0.9, 0.0, 1.0, 1.0, 0.0,
+    ]);
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, points, gl.STATIC_DRAW);
+    const BYTES = points.BYTES_PER_ELEMENT;
+    gl.vertexAttribPointer(aPosition, 4, gl.FLOAT, false, BYTES * 6, 0);
+    void gl.enableVertexAttribArray(aPosition);
+
+    let eyey = -0.1;
+    function draw() {
+        eyey += 0.01;
+        if (eyey > 1) {
+            eyey = -0.1;
+        }
+        const eye = [0.0, eyey, 0.2];
+        const lookAt = [0.0, 0.0, 0.0];
+        const up = [0.0, 0.6, 0.0];
+        const vm = getViewMatrix(...eye, ...lookAt, ...up);
+        gl.uniformMatrix4fv(mat, false, vm);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(draw);
+    }
+    draw();
+</script>

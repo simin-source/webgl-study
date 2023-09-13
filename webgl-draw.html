@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>webgl入门</title>
+    <script src="./js/initShader.js"></script>
+    <style>
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        body::after {
+            content: '';
+            display: block;
+            width: 1px;
+            height: 500px;
+            background-color: aqua;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        body::before {
+            content: '';
+            display: block;
+            width: 500px;
+            height: 1px;
+            background-color: darkviolet;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="draw1" width="400" height="400" style="background: pink;">浏览器不支持canvas</canvas>
+</body>
+
+</html>
+<script type="module">
+    const draw1 = document.getElementById('draw1');
+    const gl = draw1.getContext('webgl');
+
+    const VERTEX_SHADER_SOURCE = `
+            attribute vec4 aPosition;
+            void main(){
+                gl_Position=aPosition;
+                gl_PointSize=10.0;
+            }
+        `; //顶点 
+    //默认vec4（0.0，0.0，0.0，1.0）(x,y,z,w),w齐次坐标，最终的三维坐标为（x/w,y/w,z/w），当w无限接近0说明坐标越远
+    //attribute只传递顶点数量
+    const FRAGMENT_SHADER_SOURCE = `
+            precision mediump float;
+            uniform vec4 uColor;
+            void main(){
+                gl_FragColor=uColor;
+            }
+        `;  //片元 (rgba)
+    const FRAGMENT_SHADER_SOURCE2 = `
+            precision mediump float;
+            uniform vec2 uColor;
+            void main(){
+                gl_FragColor=vec4(uColor.r,uColor.g,0.0,1.0);
+            }
+        `;
+    const FRAGMENT_SHADER_SOURCE3 = `
+            precision mediump float;
+            uniform float uColor;
+            void main(){
+                gl_FragColor=vec4(uColor,0.0,0.0,1.0);
+            }
+        `;//这是vec为1的情况
+    const program = initShader(gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE2);
+    const aPosition = gl.getAttribLocation(program, 'aPosition');//第二个参数是源码里attribute声明的变量名
+    const uColor = gl.getUniformLocation(program, 'uColor');
+    // gl.uniform4f(uColor, 1.0, 1.0, 0.0, 1.0);
+
+    const points = [];
+    draw1.onmousemove = (e) => {
+        const x = e.clientX;
+        const y = e.clientY;
+        const { top, left } = e.target.getBoundingClientRect();
+        const domX = x - left;//点击点距离画布左侧的距离
+        const domY = y - top;
+        //计算坐标使其范围（-1，1）
+        //X先减画布宽度一半，再除以画布宽度一半
+        //画布高度一半减Y，再除以画布高度一半
+        const halfW = draw1.offsetWidth / 2;
+        const halfH = draw1.offsetHeight / 2;
+        const clickX = (domX - halfW) / halfW;
+        const clickY = (halfH - domY) / halfH;
+        // points.push([clickX, clickY]);
+        // for (const index in points) {
+        gl.vertexAttrib2f(aPosition, clickX, clickY);
+        gl.uniform2f(uColor, clickX, clickY);
+        gl.drawArrays(gl.POINTS, 0, 1);
+        // }
+    }
+    //循环绘制移动点
+    // let x = 0;
+    // setInterval(() => {
+    //     x += 0.1;
+    //     if (x > 1.0) {
+    //         x = 0;
+    //     }
+    //     gl.vertexAttrib4f(aPosition, x, 0.0, 0.0, 1.0);
+    //     gl.drawArrays(gl.POINTS, 0, 1);
+    // }, 200);
+</script>

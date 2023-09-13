@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>彩色图形和纹理对象</title>
+    <script src="./js/initShader.js"></script>
+    <script src="./js/matrix.js"></script>
+    <style>
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="draw1" width="400" height="400" style="background: skyblue;">浏览器不支持canvas</canvas>
+</body>
+
+</html>
+<script type="module">
+    const draw1 = document.getElementById('draw1');
+    const gl = draw1.getContext('webgl');
+    //attribute只传递顶点数量
+    const VERTEX_SHADER_SOURCE = `
+            attribute vec4 aPosition;
+            attribute vec4 aTex;
+            varying vec4 vColor;
+            varying vec2 vTex;
+            void main(){
+                vColor=aPosition;//opengl强类型语言,左右两边类型一致
+                vTex=vec2(aTex.x,aTex.y);
+                gl_Position=aPosition;
+                gl_PointSize=10.0;
+            }
+        `; //顶点 
+    const FRAGMENT_SHADER_SOURCE = `
+            precision lowp float;
+            varying vec4 vColor;
+            uniform sampler2D uSampler;
+            uniform sampler2D uSampler1;
+            varying vec2 vTex;
+            void main(){
+                gl_FragColor=vColor;
+                vec4 c1=texture2D(uSampler,vTex);
+                vec4 c2=texture2D(uSampler1,vTex);
+
+                // gl_FragColor=texture2D(uSampler,vTex);
+                gl_FragColor=c1*c2;
+            }
+        `;//片元
+    const program = initShader(gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
+    const aPosition = gl.getAttribLocation(program, 'aPosition');//第二个参数是源码里attribute声明的变量名
+    const aTex = gl.getAttribLocation(program, 'aTex');
+    const uSampler = gl.getUniformLocation(program, 'uSampler');
+    const uSampler1 = gl.getUniformLocation(program, 'uSampler1');
+
+    const points = new Float32Array([
+        // -0.5, -0.5, 0.0, 1.0, 0.0, 1.0,
+        // 0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
+        // -0.5, 0.5, 0.0, 1.0, 1.0, 1.0,
+        // 0.5, 0.5, 0.0, 1.0, 1.0, 0.0,
+        -0.5, 0.5, 0.0, 1.0, 0.0, 1.0,
+        -0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
+        0.5, 0.5, 0.0, 1.0, 1.0, 1.0,
+        0.5, -0.5, 0.0, 1.0, 1.0, 0.0,
+    ]);
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, points, gl.STATIC_DRAW);
+    const BYTES = points.BYTES_PER_ELEMENT;
+    gl.vertexAttribPointer(aPosition, 4, gl.FLOAT, false, BYTES * 6, 0);
+    void gl.enableVertexAttribArray(aPosition);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    function getImage(src, location, index) {
+        return new Promise(resolve => {
+            const img = new Image();
+            img.onload = function () {
+                //创建纹理对象
+                const texture = gl.createTexture();
+                //翻转图片Y轴
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+                //开启一个纹理单元
+                gl.activeTexture(gl[`TEXTURE${index}`]);//纹理编号
+                //绑定纹理对象
+                gl.bindTexture(gl.TEXTURE_2D, texture);//（type,texture），type有两种gl.TEXTURE_2D,gl.TEXTURE_CUBE_MAP,texture纹理对象    
+                //处理放大缩小逻辑
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);//(type,pname,param)type同上，pname四种，param两种
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);//gl.TEXTURE_MIN_FILTER缩小
+                //横向，纵向，平铺
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);//gl.TEXTURE_WRAP_S横向
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);//gl.TEXTURE_WRAP_T纵向
+                //配置纹理图像
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);//(type,level,internalformat,format,dataType,image),internalformat和format值一致
+
+                gl.uniform1i(location, index);//0为纹理编号
+                resolve();
+            }
+            //1200*675
+            img.src = src;
+        })
+    }
+
+    const tex1 = getImage('./img/sky.jpg', uSampler, 0);
+    const tex2 = getImage('./img/sky.jpg', uSampler1, 1);
+    Promise.all([tex1, tex2]).then(() => {
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    });
+</script>

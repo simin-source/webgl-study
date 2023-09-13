@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>webgl入门=彩色点-圆点</title>
+    <script src="./js/initShader.js"></script>
+    <style>
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        body::after {
+            content: '';
+            display: block;
+            width: 1px;
+            height: 500px;
+            background-color: aqua;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        body::before {
+            content: '';
+            display: block;
+            width: 500px;
+            height: 1px;
+            background-color: darkviolet;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="draw1" width="400" height="400" style="background: pink;">浏览器不支持canvas</canvas>
+</body>
+
+</html>
+<script type="module">
+    const draw1 = document.getElementById('draw1');
+    const gl = draw1.getContext('webgl');
+    //attribute只传递顶点数量
+    const VERTEX_SHADER_SOURCE = `
+            attribute vec4 aPosition;
+            attribute float aPointSize;
+            void main(){
+                gl_Position=aPosition;
+                gl_PointSize=aPointSize;
+            }
+        `; //顶点 
+    //默认vec4（0.0，0.0，0.0，1.0）(x,y,z,w),w齐次坐标，最终的三维坐标为（x/w,y/w,z/w），当w无限接近0说明坐标越远
+    const FRAGMENT_SHADER_SOURCE = `
+            precision mediump float;
+            uniform vec4 uColor;
+            void main(){
+                gl_FragColor=uColor;
+            }
+        `;  //片元 (rgba)
+    const FRAGMENT_SHADER_SOURCE2 = `
+            // precision mediump float;
+            // uniform vec2 uColor;
+            // void main(){
+            //     // gl_FragColor=vec4(uColor.r,uColor.g,0.0,1.0);
+            //     //gl_FragCoord每个片元的坐标
+            //     if(gl_FragCoord.y<150.0){
+            //         gl_FragColor=vec4(1.0,0.0,0.0,1.0);
+            //     }else if(gl_FragCoord.y<200.0){
+            //         gl_FragColor=vec4(1.0,1.0,0.0,1.0);
+            //     }else if(gl_FragCoord.y<250.0){
+            //         gl_FragColor=vec4(0.0,1.0,0.0,1.0);
+            //     }else{
+            //         gl_FragColor=vec4(0.0,0.0,1.0,1.0);
+            //     }
+            //     //gl_PointCoord点坐标
+            //     if(gl_PointCoord.y>0.75){
+            //         gl_FragColor=vec4(0.0,0.0,1.0,1.0);
+            //     }else if(gl_PointCoord.y>0.5){
+            //         gl_FragColor=vec4(0.0,1.0,0.0,1.0);
+            //     }else if(gl_PointCoord.y>0.25){
+            //         gl_FragColor=vec4(1.0,1.0,0.0,1.0);
+            //     }else{
+            //         gl_FragColor=vec4(1.0,0.0,0.0,1.0);
+            //     }
+            // }
+            
+            //圆点绘制
+            precision lowp float;
+
+            void main() {
+                // 计算距离
+                float dis = distance(gl_PointCoord, vec2(0.5,0.5));
+                // float dis = distanceSelf(gl_PointCoord, vec2(0.5,0.5));
+
+                // if (dis > 0.5) {
+                //     gl_FragColor = vec4(1.0,1.0,0.0,1.0);
+                // }else{
+                //     discard;
+                //     gl_FragColor = vec4(1.0,0.0,0.0,1.0);
+                // }
+
+                //圆环设置
+                if (dis > 0.5 || (dis < 0.4 && dis > 0.3) || dis < 0.2) {
+                    discard;
+                }
+                gl_FragColor = vec4(1.0,0.0,0.0,1.0);
+            }
+        `;//uniform统一声明，所有点颜色一样
+    const program = initShader(gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE2);
+    const aPosition = gl.getAttribLocation(program, 'aPosition');//第二个参数是源码里attribute声明的变量名
+    const aPointSize = gl.getAttribLocation(program, 'aPointSize');
+    const uColor = gl.getUniformLocation(program, 'uColor');
+    gl.uniform2f(uColor, 1.0, 1.0);
+
+    //用类型化数组创建顶点数据
+    const points = new Float32Array([
+        -0.5, -0.5,
+        0.5, -0.5,
+        0.0, 0.5
+    ])
+    //创建buffer缓冲区对象
+    const buffer = gl.createBuffer();
+    //绑定给webgl
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);//(target,buffer),target有两种：gl.ARRAY_BUFFER顶点数据，gl.ELEMENT_ARRAY_BUFFER顶点索引值
+    //添加顶点数据，约定类型
+    gl.bufferData(gl.ARRAY_BUFFER, points, gl.STATIC_DRAW);//(target,data,type)target同上保持一致,type数据类型3种,这里gl.STATIC_DRAW表示写入一次多次绘制
+    // gl.vertexAttrib2f(aPosition, 0.0, 0.0);
+    //将缓冲分配给attribute变量
+    gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);//(location,size,type,normalized,stride,offset)size参数数量，normalized是否将数据归一区间，stride两个数据间隔几个字节，offset数据偏移量
+    //启动attribute
+    void gl.enableVertexAttribArray(aPosition);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // gl.drawArrays(gl.POINTS, 0, 3);
+
+    const size = new Float32Array([
+        10.0,
+        20.0,
+        30.0
+    ])
+    const sizeBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, sizeBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, size, gl.STATIC_DRAW);
+    gl.vertexAttribPointer(aPointSize, 1, gl.FLOAT, false, 0, 0);
+    void gl.enableVertexAttribArray(aPointSize);
+    gl.drawArrays(gl.POINTS, 0, 3);
+
+</script>

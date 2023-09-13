@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>合并属性和图形绘制</title>
+    <script src="./js/initShader.js"></script>
+    <style>
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        body::after {
+            content: '';
+            display: block;
+            width: 1px;
+            height: 500px;
+            background-color: aqua;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        body::before {
+            content: '';
+            display: block;
+            width: 500px;
+            height: 1px;
+            background-color: darkviolet;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="draw1" width="400" height="400" style="background: pink;">浏览器不支持canvas</canvas>
+</body>
+
+</html>
+<script type="module">
+    const draw1 = document.getElementById('draw1');
+    const gl = draw1.getContext('webgl');
+    //attribute只传递顶点数量
+    const VERTEX_SHADER_SOURCE = `
+            attribute vec4 aPosition;
+            attribute float aPointSize;
+            void main(){
+                gl_Position=aPosition;
+                gl_PointSize=aPointSize;
+            }
+        `; //顶点 
+    //默认vec4（0.0，0.0，0.0，1.0）(x,y,z,w),w齐次坐标，最终的三维坐标为（x/w,y/w,z/w），当w无限接近0说明坐标越远
+    const FRAGMENT_SHADER_SOURCE = `
+            precision mediump float;
+            uniform vec4 uColor;
+            void main(){
+                gl_FragColor=uColor;
+            }
+        `;  //片元 (rgba)
+    const FRAGMENT_SHADER_SOURCE2 = `
+            precision mediump float;
+            uniform vec2 uColor;
+            void main(){
+                gl_FragColor=vec4(uColor.r,uColor.g,0.0,1.0);
+            }
+        `;//uniform统一声明，所有点颜色一样
+    const program = initShader(gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE2);
+    const aPosition = gl.getAttribLocation(program, 'aPosition');//第二个参数是源码里attribute声明的变量名
+    const aPointSize = gl.getAttribLocation(program, 'aPointSize');//第二个参数是源码里attribute声明的变量名
+    const uColor = gl.getUniformLocation(program, 'uColor');
+    gl.uniform2f(uColor, 1.0, 1.0);
+
+    //用类型化数组创建顶点数据，合并顶点location和size
+    const points = new Float32Array([
+        -0.5, -0.5, 10.0,
+        0.5, -0.5, 20.0,
+        // 0.0, 0.5, 30.0,
+        -0.5, 0.5, 30.0,
+        0.5, 0.5, 20.0,
+        // 0.5, 0.8, 10.0,
+        // 0.8, 0.5, 10.0
+    ])
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, points, gl.STATIC_DRAW);
+    const BYTES = points.BYTES_PER_ELEMENT//获取属性字节数
+    gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, BYTES * 3, 0);
+    void gl.enableVertexAttribArray(aPosition);
+    gl.vertexAttribPointer(aPointSize, 1, gl.FLOAT, false, BYTES * 3, BYTES * 2);
+    void gl.enableVertexAttribArray(aPointSize);
+    // gl.drawArrays(gl.POINTS, 0, 3);//size属性只在点类型下有效
+    // gl.drawArrays(gl.LINES, 0, 3);
+    // gl.drawArrays(gl.LINE_STRIP, 0, 3);//绘制连续线段
+    // gl.drawArrays(gl.LINE_LOOP, 0, 3);//绘制闭合
+    // gl.drawArrays(gl.TRIANGLES, 0, 3);//绘制三角形
+    // gl.drawArrays(gl.TRIANGLES, 0, 6);
+    // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+</script>

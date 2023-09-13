@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>百叶窗效果</title>
+    <script src="./js/initShader.js"></script>
+    <script src="./js/matrix.js"></script>
+    <style>
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        body::after {
+            content: '';
+            display: block;
+            width: 1px;
+            height: 500px;
+            background-color: aqua;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        body::before {
+            content: '';
+            display: block;
+            width: 500px;
+            height: 1px;
+            background-color: darkviolet;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="draw1" width="400" height="400" style="background: pink;">浏览器不支持canvas</canvas>
+</body>
+
+</html>
+<script type="module">
+    const draw1 = document.getElementById('draw1');
+    const gl = draw1.getContext('webgl');
+    const VERTEX_SHADER_SOURCE = `
+            attribute vec4 aPosition;
+            varying vec4 vPosition;
+            void main(){
+                vPosition=aPosition;
+                gl_Position=aPosition;
+                gl_PointSize=10.0;
+            }
+        `; //顶点 
+    const FRAGMENT_SHADER_SOURCE = `
+            precision lowp float;
+            uniform float uHeight;
+            varying vec4 vPosition;
+            uniform float list[5];
+            void main(){
+                // if(vPosition.y < 1.0 && vPosition.y>0.5){
+                //     if(vPosition.y > uHeight){
+                //         gl_FragColor=vec4(1.0,1.0,0.0,1.0);
+                //     }else{
+                //         gl_FragColor=vec4(1.0,1.0,0.0,0.0);
+                //     }
+                // };
+                // if(vPosition.y < 0.5 && vPosition.y>0.0){
+                //     if(vPosition.y > uHeight-0.5){
+                //         gl_FragColor=vec4(1.0,0.0,0.0,1.0);
+                //     }else{
+                //         gl_FragColor=vec4(1.0,0.0,0.0,0.0);
+                //     }
+                // };
+                // if(vPosition.y < 0.0 && vPosition.y>-0.5){
+                //     if(vPosition.y > uHeight-1.0){
+                //         gl_FragColor=vec4(1.0,1.0,0.0,1.0);
+                //     }else{
+                //         gl_FragColor=vec4(1.0,1.0,0.0,0.0);
+                //     }
+                // };
+                for(int i=0; i<5; i++){
+                    if(vPosition.y < list[i]){
+                        // && vPosition.y > list[i + 1]
+                        if(vPosition.y > uHeight - float(i) * 0.5){
+                            gl_FragColor=vec4(1.0,1.0,0.0,1.0);
+                        };
+                    };
+                }
+            }
+        `;//片元
+    const program = initShader(gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
+    const aPosition = gl.getAttribLocation(program, 'aPosition');//第二个参数是源码里attribute声明的变量名
+    const uHeight = gl.getUniformLocation(program, 'uHeight');
+    const uList = gl.getUniformLocation(program, 'list');
+    // gl.uniform1fv(uList, [0.8, 0.5, 0.0, -0.5, -0.8]);
+    gl.uniform1fv(uList, [1.0, 0.5, 0.0, -0.5, -1.0]);
+
+    //用类型化数组创建顶点数据，合并顶点location和size
+    const points = new Float32Array([
+        // -0.5, -0.5,
+        // 0.5, -0.5,
+        // -0.5, 0.5,
+        // 0.5, 0.5,
+        // -0.8, -0.8,
+        // 0.8, -0.8,
+        // -0.8, 0.8,
+        // 0.8, 0.8,
+        -1.0, -1.0,
+        1.0, -1.0,
+        -1.0, 1.0,
+        1.0, 1.0,
+    ]);
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, points, gl.STATIC_DRAW);
+    const BYTES = points.BYTES_PER_ELEMENT//获取属性字节数
+    gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+    void gl.enableVertexAttribArray(aPosition);
+
+    let heightValue = 1;
+    function animation() {
+        heightValue -= 0.01;
+        gl.uniform1f(uHeight, heightValue);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(animation);
+    }
+    animation();
+</script>

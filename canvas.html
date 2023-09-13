@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>webgl入门</title>
+    <style>
+        html,
+        body {
+            padding: 0;
+            margin: 0;
+        }
+
+        body::after {
+            content: '';
+            display: block;
+            width: 1px;
+            height: 400px;
+            background-color: aqua;
+            position: absolute;
+            top: 0;
+            left: 200px;
+        }
+
+        body::before {
+            content: '';
+            display: block;
+            width: 400px;
+            height: 1px;
+            background-color: darkviolet;
+            position: absolute;
+            top: 200px;
+            left: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="draw1" width="400" height="400">浏览器不支持canvas</canvas>
+</body>
+
+</html>
+<script type="module">
+    const draw1 = document.getElementById('draw1');
+    // const c=draw1.getContext('2d');
+    // c.fillStyle='pink';//先填充背景色
+    // c.fillRect(10,10,100,100);//画一个方块 坐标[10,10]，尺寸100*100
+    const gl = draw1.getContext('webgl');
+
+    //1. 给画布换颜色
+    gl.clearColor(1.0, 0.0, 0.0, 0.3);//清空canvas颜色，四个参数（r,g,b,a）取值在0.0-1.0之间
+    gl.clear(gl.COLOR_BUFFER_BIT); //COLOR_BUFFER_BIT清空颜色缓存
+
+    // gl.clearDepth(1.0);
+    // gl.clear(gl.DEPTH_BUFFER_BIT); //DEPTH_BUFFER_BIT清空深度缓冲区
+
+    // gl.clearStencil(0);
+    // gl.clear(gl.STENCIL_BUFFER_BIT); //STENCIL_BUFFER_BIT清空模板缓冲区
+
+    //2. 画点
+    //(1)初始化着色器，编写源码
+    const VERTEX_SHADER_SOURCE = `
+            void main(){
+                gl_Position=vec4(0.0,0.0,0.0,1.0);
+                gl_PointSize=10.0;
+            }
+        `; //顶点 vec4(x,y,z,w),w齐次坐标，最终的三维坐标为（x/w,y/w,z/w），当w无限接近0说明坐标越远
+    const FRAGMENT_SHADER_SOURCE = `
+            void main(){
+                gl_FragColor=vec4(1.0,0.0,0.0,1.0);
+            }
+        `;  //片元 (rgba)
+    initShader(gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
+
+    //(2)执行绘制
+    //3个顶点画三角形：一个点+一个线段
+    gl.drawArrays(gl.POINTS, 0, 1);//(要绘制的图形是什么，从那个开始，使用几个顶点)
+    gl.drawArrays(gl.LINES, 1, 2);//至少两个点
+    // gl.drawArrays(gl.TRIANGLES, 0, 1);//至少三个点
+
+    function initShader(gl, vertexSource, fragmentSource) {
+        //创建着色器
+        const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+        //指定着色器源码
+        gl.shaderSource(vertexShader, vertexSource);
+        gl.shaderSource(fragmentShader, fragmentSource);
+        //编译着色器
+        gl.compileShader(vertexShader);
+        gl.compileShader(fragmentShader);
+
+        if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS) || !gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+            var info1 = gl.getShaderInfoLog(vertexShader);
+            var info2 = gl.getShaderInfoLog(fragmentShader);
+            throw `could not compile webgl shader<br>
+            vertexShader: ${info1}<br>
+            fragmentShader: ${info2}
+            `;
+        }
+
+        //使用着色器，创建一个程序对象
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader,);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        return program;
+    }
+</script>
