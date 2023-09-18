@@ -46,8 +46,7 @@
 
                 //定义点光源：光源位置、发射方向，颜色
                 vec3 uPointLightColor=vec3(1.0,1.0,0.0);
-                vec3 uPointLightPosition=vec3(-5.0,6.0,10.0);
-                // vec3 uPointLightPosition =vec3(-10.0,-10.0,-10.0);
+                vec3 uPointLightPosition =vec3(-10.0,-10.0,-10.0);
                 vec3 lightDirection=normalize(uPointLightPosition-vec3(vertexPosition));
                 //定义环境光源:
                 vec3 uAmbientLightColor=vec3(0.2,0.2,0.2);
@@ -224,7 +223,6 @@
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indeces, gl.STATIC_DRAW);
 
-
     const start = 0;
     const end = 200;
     const fogColor = new Float32Array([0.0, 0.0, 0.0]);
@@ -239,7 +237,6 @@
     let eyez = 3;
     let deg = 0;
     function draw() {
-
         fogDist[1] -= 1;
         if (fogDist[1] < start) {
             fogDist[1] = end;
@@ -248,11 +245,11 @@
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        // deg += 0.01;
+        deg += 0.01;
         const eye = [eyex, eyey, eyez];
         const lookAt = [0.0, 0.0, 0.0];
         const up = [0.0, 0.6, 0.0];
-        // const roate = getRotateMatrix(deg);
+        const roate = getRotateMatrix(deg);
         const vm = getViewMatrix(...eye, ...lookAt, ...up);
         const Perspective = getPerspective(30, draw1.width / draw1.height, 100, 1);
 
@@ -260,11 +257,11 @@
         //设置半透明物体
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-        // gl.enable(gl.DEPTH_TEST);//深度缓冲区
+        // gl.enable(gl.DEPTH_TEST);//开启隐藏面消除功能
 
         // gl.uniformMatrix4fv(mat, false, mixMatrix(vm, Perspective));//最终转成透视矩阵
-        gl.uniformMatrix4fv(mat, false, mixMatrix(Perspective, vm));//最终转成视图数据
-        // gl.uniformMatrix4fv(mat, false, mixMatrix(mixMatrix(Perspective, vm), roate));//最终转成旋转数据
+        // gl.uniformMatrix4fv(mat, false, mixMatrix(Perspective, vm));//最终转成视图数据
+        gl.uniformMatrix4fv(mat, false, mixMatrix(mixMatrix(Perspective, vm), roate));//最终转成旋转数据
         // gl.drawArrays(gl.TRIANGLES, 0, points.length / 3);
         //索引绘制立方体
         gl.drawElements(gl.TRIANGLES, indeces.length, gl.UNSIGNED_BYTE, 0);//(mode,count,type,offset)mode同gl.drawArrays,count顶点数，type顶点数据类型,offset索引数组开始绘制的位置

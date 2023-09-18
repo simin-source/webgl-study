@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D贴图和光</title>
+    <script src="./js/initShader.js"></script>
+    <script src="./js/matrix4.js"></script>
+    <style>
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="webgl" width="400" height="400">浏览器不支持canvas</canvas>
+</body>
+
+</html>
+<script type="module">
+    // 顶点着色器 
+    const VERTEX_SHADER_SOURCE = `
+            attribute vec4 aPosition;
+            attribute vec4 aColor;
+            attribute vec4 alNormal; // 用于光照
+            uniform mat4 uMvpMatrix;
+            varying vec4 vColor;
+            varying vec3 vNormal; // 用于贴图
+            void main(){
+                vec4 vertexPosition=uMvpMatrix*aPosition;
+
+                vec4 pColor = vec4(1.0,0.0,0.0,1.0);
+
+                // 定义点光源：光源位置、发射方向，颜色
+                vec3 uPointLightColor=vec3(1.0,1.0,0.0);
+                vec3 uPointLightPosition=vec3(-5.0,6.0,10.0);
+                // vec3 uPointLightPosition =vec3(-10.0,-10.0,-10.0);
+                vec3 lightDirection=normalize(uPointLightPosition-vec3(vertexPosition));
+                // 定义环境光源:
+                vec3 uAmbientLightColor=vec3(0.2,0.2,0.2);
+                // 环境反射
+                vec3 ambient=uAmbientLightColor * vec3(pColor);
+                // 漫反射: 计算入射角
+                float dotDeg=dot(lightDirection,vec3(alNormal));
+                // 漫反射颜色
+                vec3 diffuseColor=uPointLightColor*vec3(pColor)*dotDeg;
+
+                gl_Position=vertexPosition;
+                vColor=aColor;
+                // vColor=vec4(ambient+diffuseColor,aColor.a);
+                // 传递法向量。因为位置是以几何中心为原点的
+                vNormal = normalize(aPosition.xyz);
+            }
+        `;
+    // 片元着色器 
+    const FRAGMENT_SHADER_SOURCE = `
+            precision mediump float;
+            uniform samplerCube uSampler;
+            varying vec4 vColor;
+            varying vec3 vNormal;
+            void main(){
+                // gl_FragColor=vec4(1.0,1.0,0.0,1.0);
+                // gl_FragColor=vColor;
+                gl_FragColor=textureCube(uSampler, normalize(vNormal));
+            }
+        `;
+
+    function initVertexBuffers(gl) {
+        let radius = 0.3;
+        let height = 1;
+        let divideNum = 60; // 自定义几份数据
+        let theta = Math.PI * 2 / divideNum; // 一个圆2Π是360°
+        /**
+         *     4
+         *   /    \
+         * 3        1
+         *  \      /
+         *   \ 2  /
+         *    \  /
+         *     0
+         */
+        let vertices = [0, -height / 2, 0];
+        // let vertices = [];
+        for (let i = 0; i < divideNum; i++) {
+            let x = radius * Math.cos(theta * i);
+            let z = radius * Math.sin(theta * i);
+            vertices.push(x, height / 2, z);
+        }
+
+        let colors = [];
+        let baseColor = [[1.0, 0.4, 0.4], [0.4, 1.0, 0.4], [0.4, 0.4, 1.0], [0.2, 0.4, 0.0], [0.4, 0.3, 0.8], [0.8, 1, 0.1]];
+
+        colors.push(1.0, 0.4, 0.4);
+        for (let i = 1; i < vertices.length; i++) {
+            // let color = baseColor[Math.floor(Math.random()*6)];
+            // colors = colors.concat(color);
+            colors.push(0.4, 1.0, 0.4);
+        }
+
+        let indices = [];
+        for (let i = 1; i <= divideNum; i++) {
+            if (i === divideNum) {
+                indices.push(0, i, 1);
+            } else {
+                indices.push(0, i, i + 1);
+            }
+        }
+
+        vertices = Float32Array.from(vertices);
+        colors = Float32Array.from(colors);
+        indices = Uint8Array.from(indices);
+
+        var indexBuffer = gl.createBuffer();
+        if (!indexBuffer)
+            return -1;
+
+        if (!initArrayBuffer(gl, program, vertices, 3, gl.FLOAT, 'aPosition'))
+            return -1;
+
+        if (!initArrayBuffer(gl, program, colors, 3, gl.FLOAT, 'aColor'))
+            return -1;
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+        return indices.length;
+    }
+
+    function initArrayBuffer(gl, program, data, num, type, attribute) {
+        var buffer = gl.createBuffer();
+        if (!buffer) {
+            console.log('Failed to create the buffer object');
+            return false;
+        }
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+        var a_attribute = gl.getAttribLocation(program, attribute);
+        if (a_attribute < 0) {
+            console.log('Failed to get the storage location of ' + attribute);
+            return false;
+        }
+        gl.vertexAttribPointer(a_attribute, num, type, false, 0, 0);
+        gl.enableVertexAttribArray(a_attribute);
+
+        return true;
+    }
+
+    function initTexture(gl, program) {
+        const uSampler = gl.getUniformLocation(program, 'uSampler');
+        let index = 0;
+        // 创建纹理对象
+        const texture = gl.createTexture();
+        // 翻转图片Y轴
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+        // 开启一个纹理单元
+        gl.activeTexture(gl[`TEXTURE${index}`]);//纹理编号
+        // 绑定纹理对象
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);//（type,texture），type有两种gl.TEXTURE_2D,gl.TEXTURE_CUBE_MAP,texture纹理对象    
+        // 配置纹理图像
+        const ctx = document.createElement("canvas").getContext("2d");
+
+        ctx.canvas.width = 128;
+        ctx.canvas.height = 128;
+
+        const faceInfos = [
+            { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, faceColor: '#F00', textColor: '#0FF', text: '+X' },
+            { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, faceColor: '#FF0', textColor: '#00F', text: '-X' },
+            { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, faceColor: '#0F0', textColor: '#F0F', text: '+Y' },
+            { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, faceColor: '#0FF', textColor: '#F00', text: '-Y' },
+            { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, faceColor: '#00F', textColor: '#FF0', text: '+Z' },
+            { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, faceColor: '#F0F', textColor: '#0F0', text: '-Z' },
+        ];
+
+        faceInfos.forEach((faceInfo) => {
+            const { target, faceColor, textColor, text } = faceInfo;
+            generateFace(ctx, faceColor, textColor, text);
+
+            // 上传画布到立方体贴图的每个面。
+            const level = 0;
+            const internalFormat = gl.RGBA;
+            const format = gl.RGBA;
+            const type = gl.UNSIGNED_BYTE;
+            // https://developer.mozilla.org/zh-CN/docs/Web/API/WebGLRenderingContext/texImage2D
+            gl.texImage2D(target, level, internalFormat, format, type, ctx.canvas);
+        });
+        gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.CULL_FACE);
+        gl.enable(gl.DEPTH_TEST);
+
+        gl.uniform1i(uSampler, index);// 0为纹理编号
+    }
+
+    function generateFace(ctx, faceColor, textColor, text) {
+        const { width, height } = ctx.canvas;
+        ctx.fillStyle = faceColor;
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = `${width * 0.7}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = textColor;
+        ctx.fillText(text, width / 2, height / 2);
+    }
+
+    let rotationAngle = 0;
+    function draw() {
+        // 获取着色器变量
+        const uMvpMatrix = gl.getUniformLocation(program, 'uMvpMatrix');
+        // 设置视觉矩阵,三要素(视点,目标点,上方向)
+        rotationAngle += 1;
+        let eyex = 0;
+        let eyey = 2.0;
+        let eyez = 5.0;
+        const eye = [eyex, eyey, eyez];
+        const lookAt = [0.0, 0.0, 0.0];
+        const up = [0.0, 1.0, 0.0];
+        // 设置canvas的背景色
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        // 清理缓冲区
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        // 开启隐藏面消除
+        gl.enable(gl.DEPTH_TEST);
+        // 开启半透明
+        // gl.enable(gl.BLEND);
+        // 设置半透明物体
+        // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        // 贴纹理
+        initTexture(gl, program);
+        var modelMatrix = new Matrix4() //创建模型矩阵        
+        var viewMatrix = new Matrix4() //创建视图矩阵   
+        var projMatrix = new Matrix4() //创建投影矩阵  
+        var mvpMatrix = new Matrix4() //创建模型视图投影矩阵  
+        modelMatrix.rotate(rotationAngle, 1.0, 1.0, 1.0) //设置模型矩阵,旋转
+        viewMatrix.setLookAt(...eye, ...lookAt, ...up) //设置视点、视线和上方向    
+        projMatrix.setPerspective(30, canvas.width / canvas.height, 1, 100) //设置透视投影矩阵
+        mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix) //将模型矩阵、视图矩阵、投影矩阵相乘赋值给模型视图投影矩阵
+        gl.uniformMatrix4fv(uMvpMatrix, false, mvpMatrix.elements);
+        // 绘制
+        gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+        // 动画
+        requestAnimationFrame(draw);
+    }
+
+
+
+    // 获取webgl上下文
+    const canvas = document.getElementById('webgl');
+    const gl = canvas.getContext('webgl');// 或getWebGLContext(canvas)
+    // 着色器
+    const program = initShader(gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
+    // 顶点 颜色 索引缓冲区
+    const n = initVertexBuffers(gl);
+    // 绘制
+    draw();
+
+</script>
